@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>PARICHARYA</title>
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background-color: #f0f0f0;
+      }
+
+      .output-text {
+        font-size: 1.5em;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 10px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        max-width: 90%;
+        word-wrap: break-word;
+      }
+
+      .mic-button {
+        width: 120px;
+        height: 120px;
+        background-color: #007bff;
+        border: none;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        outline: none;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .mic-button img {
+        width: 80%;
+        height: 80%;
+        object-fit: contain;
+      }
+
+      .mic-button:active {
+        background-color: #0056b3;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      @media (max-width: 600px) {
+        .output-text {
+          font-size: 1.2em;
+        }
+
+        .mic-button {
+          width: 100px;
+          height: 100px;
+        }
+
+        .mic-button img {
+          width: 70%;
+          height: 70%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="output"
+      class="output-text"
+    >
+      Tap to Speak
+    </div>
+    <button
+      class="mic-button"
+      id="micButton"
+    >
+      <img
+        id="apple"
+        src="mic-icon.png"
+        alt="Microphone Icon"
+      />
+    </button>
+    <br />
+    <div
+      id="esp_resp"
+      class="output-text"
+    ></div>
+    <script>
+      const outputDiv = document.getElementById("output");
+      const micButton = document.getElementById("micButton");
+      const e = prompt("ESP IP Address", "192.168.149.10");
+      const ESP_URL = `http://${e}/`;
+
+      // Check if the browser supports Speech Recognition
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        micButton.addEventListener("click", () => {
+          recognition.start();
+          outputDiv.textContent = "Listening...";
+        });
+
+        recognition.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          outputDiv.textContent = transcript;
+          console.log(transcript);
+          var f = transcript.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+          //bengali: khulja, bandha
+          //punjabi: bada, khula
+          if (
+            ["open", "khulja", "pressure", "khola", "khula", "kulja"].includes(
+              f
+            )
+          ) {
+            sendToESP("open");
+            document.querySelector(
+              "#esp_resp"
+            ).textContent = `\n Command: Open`;
+            setTimeout(() => {
+              outputDiv.textContent = "Tap To Speak";
+            }, 3500);
+          }
+          if (
+            ["close", "band", "done", "hogya", "bandha", "bada"].includes(f)
+          ) {
+            sendToESP("close");
+            document.querySelector(
+              "#esp_resp"
+            ).textContent = `\n Command: Close`;
+            setTimeout(() => {
+              outputDiv.textContent = "Tap To Speak";
+            }, 3500);
+          }
+        };
+
+        recognition.onerror = (event) => {
+          outputDiv.textContent = `Error: ${event.error}`;
+        };
+
+        recognition.onend = () => {
+          outputDiv.textContent =
+            outputDiv.textContent === "Listening..."
+              ? "No speech detected. Try again."
+              : outputDiv.textContent;
+        };
+      } else {
+        outputDiv.textContent =
+          "Speech Recognition not supported in this browser.";
+        micButton.disabled = true;
+      }
+      function sendToESP(message) {
+        const url = `${ESP_URL}command?action=${encodeURIComponent(message)}`;
+        fetch(url)
+          .then((response) => {
+            if (response.ok) {
+              return response.text();
+            } else {
+              throw new Error(`ESP responded with status ${response.status}`);
+            }
+          })
+          .catch((error) => {
+            document.querySelector(
+              "#esp_resp"
+            ).textContent = `\nError: ${error.message}`;
+          });
+      }
+    </script>
+  </body>
+</html>
